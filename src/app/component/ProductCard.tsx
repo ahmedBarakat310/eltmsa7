@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -83,10 +84,13 @@ export default function ProductCard({
         <div className="relative flex h-[300px] items-center justify-center overflow-hidden">
 
           {product.image ? (
-            <img
+            <Image
               src={product.image}
               alt={product.name}
-              className="h-full w-full object-contain p-6 transition duration-500 group-hover:scale-105"
+              fill
+              unoptimized
+              sizes="(max-width: 768px) 100vw, 300px"
+              className="object-contain p-6 transition duration-500 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-48 w-48 items-center justify-center rounded-full bg-[#fff4d2] text-8xl shadow-inner">

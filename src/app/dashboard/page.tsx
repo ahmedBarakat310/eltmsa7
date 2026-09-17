@@ -1,6 +1,7 @@
-
 "use client";
 
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -84,9 +85,10 @@ const statusClasses: Record<OrderStatus, string> = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   const [section, setSection] = useState<Section>("overview");
   const [uploadingImage, setUploadingImage] = useState(false);
-  
 
   const [users, setUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -119,45 +121,57 @@ export default function DashboardPage() {
     image: "",
     stock: "",
   });
-async function handleImageUpload(
-  e: React.ChangeEvent<HTMLInputElement>
-) {
-  const file = e.target.files?.[0];
 
-  if (!file) return;
+  // =========================
+  // IMAGE UPLOAD
+  // =========================
 
-  try {
-    setUploadingImage(true);
+  async function handleImageUpload(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
 
-    const formData = new FormData();
-    formData.append("file", file);
+    if (!file) return;
 
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      setUploadingImage(true);
 
-    const data = await response.json();
+      const formData = new FormData();
+      formData.append("file", file);
 
-    if (!response.ok) {
-      alert(data.error || "فشل رفع الصورة");
-      return;
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "فشل رفع الصورة");
+        return;
+      }
+
+      setProductForm((prev) => ({
+        ...prev,
+        image: data.url,
+      }));
+    } catch {
+      alert("حدث خطأ أثناء رفع الصورة");
+    } finally {
+      setUploadingImage(false);
     }
-
-    setProductForm((prev) => ({
-      ...prev,
-      image: data.url,
-    }));
-  } catch {
-    alert("حدث خطأ أثناء رفع الصورة");
-  } finally {
-    setUploadingImage(false);
   }
-}
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const [editingProduct, setEditingProduct] =
+    useState<Product | null>(null);
+
   const [showProductModal, setShowProductModal] = useState(false);
 
   const [saving, setSaving] = useState(false);
+
+  // =========================
+  // FETCH DASHBOARD DATA
+  // =========================
 
   const fetchDashboardData = async () => {
     try {
@@ -180,7 +194,9 @@ async function handleImageUpload(
       const ordersData = await ordersRes.json();
 
       if (!usersRes.ok) {
-        throw new Error(usersData.error || "حدث خطأ أثناء جلب المستخدمين");
+        throw new Error(
+          usersData.error || "حدث خطأ أثناء جلب المستخدمين",
+        );
       }
 
       if (!productsRes.ok) {
@@ -190,7 +206,9 @@ async function handleImageUpload(
       }
 
       if (!ordersRes.ok) {
-        throw new Error(ordersData.error || "حدث خطأ أثناء جلب الطلبات");
+        throw new Error(
+          ordersData.error || "حدث خطأ أثناء جلب الطلبات",
+        );
       }
 
       setUsers(usersData.users || []);
@@ -207,8 +225,75 @@ async function handleImageUpload(
     }
   };
 
+  // =========================
+  // INITIAL DATA LOAD
+  // =========================
+
   useEffect(() => {
-    fetchDashboardData();
+    Promise.all([
+      fetch("/api/admin/users"),
+      fetch("/api/products"),
+      fetch("/api/admin/orders"),
+    ])
+      .then(async ([usersRes, productsRes, ordersRes]) => {
+        if (
+          usersRes.status === 403 ||
+          ordersRes.status === 403
+        ) {
+          throw new Error(
+            "غير مصرح لك بالوصول إلى لوحة التحكم",
+          );
+        }
+
+        const usersData = await usersRes.json();
+        const productsData = await productsRes.json();
+        const ordersData = await ordersRes.json();
+
+        if (!usersRes.ok) {
+          throw new Error(
+            usersData.error ||
+              "حدث خطأ أثناء جلب المستخدمين",
+          );
+        }
+
+        if (!productsRes.ok) {
+          throw new Error(
+            productsData.error ||
+              "حدث خطأ أثناء جلب المنتجات",
+          );
+        }
+
+        if (!ordersRes.ok) {
+          throw new Error(
+            ordersData.error ||
+              "حدث خطأ أثناء جلب الطلبات",
+          );
+        }
+
+        return {
+          users: usersData.users || [],
+          products:
+            productsData.products ||
+            productsData ||
+            [],
+          orders: ordersData.orders || [],
+        };
+      })
+      .then(({ users, products, orders }) => {
+        setUsers(users);
+        setProducts(products);
+        setOrders(orders);
+      })
+      .catch((err) => {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "حدث خطأ أثناء تحميل بيانات لوحة التحكم",
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const formatDate = (date: string) => {
@@ -229,11 +314,13 @@ async function handleImageUpload(
 
   const openUserModal = (user: User) => {
     setSelectedUser(user);
+
     setUserForm({
       name: user.name,
       email: user.email,
       phone: user.phone || "",
     });
+
     setXcoinAmount("");
     setEditingUser(false);
     setShowUserModal(true);
@@ -255,27 +342,34 @@ async function handleImageUpload(
     try {
       setSaving(true);
 
-      const res = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+      const res = await fetch(
+        `/api/admin/users/${selectedUser.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: userForm.name,
+            email: userForm.email,
+            phone: userForm.phone,
+          }),
         },
-        body: JSON.stringify({
-          name: userForm.name,
-          email: userForm.email,
-          phone: userForm.phone,
-        }),
-      });
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "فشل تحديث المستخدم");
+        throw new Error(
+          data.error || "فشل تحديث المستخدم",
+        );
       }
 
       setUsers((prev) =>
         prev.map((user) =>
-          user.id === selectedUser.id ? data.user : user,
+          user.id === selectedUser.id
+            ? data.user
+            : user,
         ),
       );
 
@@ -285,14 +379,18 @@ async function handleImageUpload(
       alert("تم تحديث بيانات المستخدم بنجاح");
     } catch (err) {
       alert(
-        err instanceof Error ? err.message : "حدث خطأ أثناء تحديث المستخدم",
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ أثناء تحديث المستخدم",
       );
     } finally {
       setSaving(false);
     }
   };
 
-  const updateXcoin = async (action: "add" | "remove") => {
+  const updateXcoin = async (
+    action: "add" | "remove",
+  ) => {
     if (!selectedUser) return;
 
     const amount = Number(xcoinAmount);
@@ -302,7 +400,10 @@ async function handleImageUpload(
       return;
     }
 
-    if (action === "remove" && amount > selectedUser.xcoin) {
+    if (
+      action === "remove" &&
+      amount > selectedUser.xcoin
+    ) {
       alert("رصيد XCoin غير كافي");
       return;
     }
@@ -310,26 +411,33 @@ async function handleImageUpload(
     try {
       setSaving(true);
 
-      const res = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      const res = await fetch(
+        `/api/admin/users/${selectedUser.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            xcoinAction: action,
+            amount,
+          }),
         },
-        body: JSON.stringify({
-          xcoinAction: action,
-          amount,
-        }),
-      });
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "فشل تعديل XCoin");
+        throw new Error(
+          data.error || "فشل تعديل XCoin",
+        );
       }
 
       setUsers((prev) =>
         prev.map((user) =>
-          user.id === selectedUser.id ? data.user : user,
+          user.id === selectedUser.id
+            ? data.user
+            : user,
         ),
       );
 
@@ -343,7 +451,9 @@ async function handleImageUpload(
       );
     } catch (err) {
       alert(
-        err instanceof Error ? err.message : "حدث خطأ أثناء تعديل XCoin",
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ أثناء تعديل XCoin",
       );
     } finally {
       setSaving(false);
@@ -365,17 +475,24 @@ async function handleImageUpload(
     try {
       setSaving(true);
 
-      const res = await fetch(`/api/admin/users/${user.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/admin/users/${user.id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "فشل حذف المستخدم");
+        throw new Error(
+          data.error || "فشل حذف المستخدم",
+        );
       }
 
-      setUsers((prev) => prev.filter((item) => item.id !== user.id));
+      setUsers((prev) =>
+        prev.filter((item) => item.id !== user.id),
+      );
 
       if (selectedUser?.id === user.id) {
         setSelectedUser(null);
@@ -385,7 +502,9 @@ async function handleImageUpload(
       alert("تم حذف المستخدم بنجاح");
     } catch (err) {
       alert(
-        err instanceof Error ? err.message : "حدث خطأ أثناء حذف المستخدم",
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ أثناء حذف المستخدم",
       );
     } finally {
       setSaving(false);
@@ -426,85 +545,100 @@ async function handleImageUpload(
     setShowProductModal(true);
   };
 
-const saveProduct = async () => {
-  if (!productForm.name.trim()) {
-    alert("اكتب اسم المنتج");
-    return;
-  }
-
-  if (!productForm.price || Number(productForm.price) < 0) {
-    alert("اكتب سعر صحيح");
-    return;
-  }
-
-  if (
-    !productForm.xcoinPrice ||
-    Number(productForm.xcoinPrice) < 0
-  ) {
-    alert("اكتب سعر XCoin صحيح");
-    return;
-  }
-
-  try {
-    setSaving(true);
-
-    const body = {
-      name: productForm.name,
-      description: productForm.description,
-      price: Number(productForm.price),
-      xcoinPrice: Number(productForm.xcoinPrice),
-      image: productForm.image || null,
-      stock: Number(productForm.stock || 0),
-    };
-
-    const url = editingProduct
-      ? `/api/products/${editingProduct.id}`
-      : "/api/products";
-
-    const method = editingProduct ? "PUT" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "فشل حفظ المنتج");
+  const saveProduct = async () => {
+    if (!productForm.name.trim()) {
+      alert("اكتب اسم المنتج");
+      return;
     }
 
-    if (editingProduct) {
-      setProducts((prev) =>
-        prev.map((product) =>
-          product.id === editingProduct.id ? data : product,
-        ),
+    if (
+      !productForm.price ||
+      Number(productForm.price) < 0
+    ) {
+      alert("اكتب سعر صحيح");
+      return;
+    }
+
+    if (
+      !productForm.xcoinPrice ||
+      Number(productForm.xcoinPrice) < 0
+    ) {
+      alert("اكتب سعر XCoin صحيح");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const body = {
+        name: productForm.name,
+        description: productForm.description,
+        price: Number(productForm.price),
+        xcoinPrice: Number(productForm.xcoinPrice),
+        image: productForm.image || null,
+        stock: Number(productForm.stock || 0),
+      };
+
+      const url = editingProduct
+        ? `/api/products/${editingProduct.id}`
+        : "/api/products";
+
+      const method = editingProduct
+        ? "PUT"
+        : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error || "فشل حفظ المنتج",
+        );
+      }
+
+      if (editingProduct) {
+        setProducts((prev) =>
+          prev.map((product) =>
+            product.id === editingProduct.id
+              ? data
+              : product,
+          ),
+        );
+      } else {
+        setProducts((prev) => [
+          data,
+          ...prev,
+        ]);
+      }
+
+      setShowProductModal(false);
+
+      alert(
+        editingProduct
+          ? "تم تعديل المنتج بنجاح"
+          : "تم إضافة المنتج بنجاح",
       );
-    } else {
-      setProducts((prev) => [data, ...prev]);
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ أثناء حفظ المنتج",
+      );
+    } finally {
+      setSaving(false);
     }
+  };
 
-    setShowProductModal(false);
-
-    alert(
-      editingProduct
-        ? "تم تعديل المنتج بنجاح"
-        : "تم إضافة المنتج بنجاح",
-    );
-  } catch (err) {
-    alert(
-      err instanceof Error
-        ? err.message
-        : "حدث خطأ أثناء حفظ المنتج",
-    );
-  } finally {
-    setSaving(false);
-  }
-};
-  const deleteProduct = async (product: Product) => {
+  const deleteProduct = async (
+    product: Product,
+  ) => {
     const confirmed = confirm(
       `هل أنت متأكد من حذف المنتج "${product.name}"؟`,
     );
@@ -514,24 +648,33 @@ const saveProduct = async () => {
     try {
       setSaving(true);
 
-      const res = await fetch(`/api/products/${product.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/products/${product.id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "فشل حذف المنتج");
+        throw new Error(
+          data.error || "فشل حذف المنتج",
+        );
       }
 
       setProducts((prev) =>
-        prev.filter((item) => item.id !== product.id),
+        prev.filter(
+          (item) => item.id !== product.id,
+        ),
       );
 
       alert("تم حذف المنتج بنجاح");
     } catch (err) {
       alert(
-        err instanceof Error ? err.message : "حدث خطأ أثناء حذف المنتج",
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ أثناء حذف المنتج",
       );
     } finally {
       setSaving(false);
@@ -554,21 +697,27 @@ const saveProduct = async () => {
     try {
       setSaving(true);
 
-      const res = await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      const res = await fetch(
+        "/api/admin/orders",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+            status,
+          }),
         },
-        body: JSON.stringify({
-          orderId: order.id,
-          status,
-        }),
-      });
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "فشل تحديث حالة الطلب");
+        throw new Error(
+          data.error ||
+            "فشل تحديث حالة الطلب",
+        );
       }
 
       setOrders((prev) =>
@@ -577,17 +726,23 @@ const saveProduct = async () => {
             ? {
                 ...item,
                 status,
-                updatedAt: data.order?.updatedAt || item.updatedAt,
+                updatedAt:
+                  data.order?.updatedAt ||
+                  item.updatedAt,
               }
             : item,
         ),
       );
 
-      if (selectedOrder?.id === order.id) {
+      if (
+        selectedOrder?.id === order.id
+      ) {
         setSelectedOrder({
           ...selectedOrder,
           status,
-          updatedAt: data.order?.updatedAt || selectedOrder.updatedAt,
+          updatedAt:
+            data.order?.updatedAt ||
+            selectedOrder.updatedAt,
         });
       }
 
@@ -603,14 +758,19 @@ const saveProduct = async () => {
     }
   };
 
-  const cancelOrder = async (order: Order) => {
+  const cancelOrder = async (
+    order: Order,
+  ) => {
     const confirmed = confirm(
       `هل أنت متأكد من إلغاء الطلب #${order.id}؟`,
     );
 
     if (!confirmed) return;
 
-    await updateOrderStatus(order, "CANCELLED");
+    await updateOrderStatus(
+      order,
+      "CANCELLED",
+    );
   };
 
   // =========================
@@ -623,7 +783,7 @@ const saveProduct = async () => {
         method: "POST",
       });
     } finally {
-      window.location.href = "/login";
+      router.push("/login");
     }
   };
 
@@ -658,6 +818,10 @@ const saveProduct = async () => {
     },
   ];
 
+  // =========================
+  // LOADING
+  // =========================
+
   if (loading) {
     return (
       <main
@@ -666,6 +830,7 @@ const saveProduct = async () => {
       >
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[#174c32]/20 border-t-[#174c32] rounded-full animate-spin mx-auto mb-4" />
+
           <p className="font-bold text-[#174c32]">
             جاري تحميل لوحة التحكم...
           </p>
@@ -674,6 +839,10 @@ const saveProduct = async () => {
     );
   }
 
+  // =========================
+  // ERROR
+  // =========================
+
   if (error) {
     return (
       <main
@@ -681,13 +850,17 @@ const saveProduct = async () => {
         className="min-h-screen bg-[#fffdf7] flex items-center justify-center px-5"
       >
         <div className="w-full max-w-md bg-white rounded-[28px] p-8 shadow-lg border border-red-100 text-center">
-          <div className="text-5xl mb-5">🔒</div>
+          <div className="text-5xl mb-5">
+            🔒
+          </div>
 
           <h1 className="text-2xl font-black text-[#174c32] mb-3">
             لا يمكن فتح لوحة التحكم
           </h1>
 
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-gray-600 mb-6">
+            {error}
+          </p>
 
           <div className="flex gap-3 justify-center">
             <button
@@ -708,6 +881,10 @@ const saveProduct = async () => {
       </main>
     );
   }
+
+  // =========================
+  // DASHBOARD
+  // =========================
 
   return (
     <main
@@ -762,14 +939,19 @@ const saveProduct = async () => {
               {sidebarItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setSection(item.id)}
+                  onClick={() =>
+                    setSection(item.id)
+                  }
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition ${
                     section === item.id
                       ? "bg-[#174c32] text-white"
                       : "text-gray-600 hover:bg-[#f7f3e7]"
                   }`}
                 >
-                  <span className="text-lg">{item.icon}</span>
+                  <span className="text-lg">
+                    {item.icon}
+                  </span>
+
                   <span>{item.label}</span>
                 </button>
               ))}
@@ -782,11 +964,14 @@ const saveProduct = async () => {
                 </p>
 
                 <p className="font-black text-[#174c32]">
-                  {new Intl.DateTimeFormat("ar-EG", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  }).format(new Date())}
+                  {new Intl.DateTimeFormat(
+                    "ar-EG",
+                    {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    },
+                  ).format(new Date())}
                 </p>
               </div>
             </div>
@@ -795,7 +980,7 @@ const saveProduct = async () => {
           {/* ================= CONTENT ================= */}
 
           <section className="min-w-0">
-            {/* OVERVIEW */}
+            {/* ================= OVERVIEW ================= */}
 
             {section === "overview" && (
               <div className="space-y-6">
@@ -814,21 +999,27 @@ const saveProduct = async () => {
                     icon="👥"
                     title="المستخدمين"
                     value={users.length}
-                    onClick={() => setSection("users")}
+                    onClick={() =>
+                      setSection("users")
+                    }
                   />
 
                   <StatCard
                     icon="🍯"
                     title="المنتجات"
                     value={products.length}
-                    onClick={() => setSection("products")}
+                    onClick={() =>
+                      setSection("products")
+                    }
                   />
 
                   <StatCard
                     icon="📦"
                     title="الطلبات"
                     value={orders.length}
-                    onClick={() => setSection("orders")}
+                    onClick={() =>
+                      setSection("orders")
+                    }
                   />
 
                   <StatCard
@@ -836,10 +1027,14 @@ const saveProduct = async () => {
                     title="طلبات معلقة"
                     value={
                       orders.filter(
-                        (order) => order.status === "PENDING",
+                        (order) =>
+                          order.status ===
+                          "PENDING",
                       ).length
                     }
-                    onClick={() => setSection("orders")}
+                    onClick={() =>
+                      setSection("orders")
+                    }
                   />
                 </div>
 
@@ -859,7 +1054,9 @@ const saveProduct = async () => {
                       </div>
 
                       <button
-                        onClick={() => setSection("orders")}
+                        onClick={() =>
+                          setSection("orders")
+                        }
                         className="text-[#174c32] font-bold text-sm"
                       >
                         عرض الكل
@@ -870,40 +1067,60 @@ const saveProduct = async () => {
                       {orders.length === 0 ? (
                         <EmptyState text="لا توجد طلبات حتى الآن" />
                       ) : (
-                        orders.slice(0, 5).map((order) => (
-                          <button
-                            key={order.id}
-                            onClick={() => openOrderModal(order)}
-                            className="w-full text-right p-5 hover:bg-[#fffdf7] transition"
-                          >
-                            <div className="flex items-center justify-between gap-4">
-                              <div>
-                                <p className="font-black">
-                                  #{order.id} -{" "}
-                                  {order.user?.name || "مستخدم"}
-                                </p>
+                        orders
+                          .slice(0, 5)
+                          .map((order) => (
+                            <button
+                              key={order.id}
+                              onClick={() =>
+                                openOrderModal(
+                                  order,
+                                )
+                              }
+                              className="w-full text-right p-5 hover:bg-[#fffdf7] transition"
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div>
+                                  <p className="font-black">
+                                    #{order.id} -{" "}
+                                    {order.user
+                                      ?.name ||
+                                      "مستخدم"}
+                                  </p>
 
-                                <p className="text-sm text-gray-500 mt-1">
-                                  {formatDate(order.createdAt)}
-                                </p>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    {formatDate(
+                                      order.createdAt,
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="text-left">
+                                  <p className="font-black text-[#174c32]">
+                                    {formatPrice(
+                                      order.total,
+                                    )}
+                                  </p>
+
+                                  <span
+                                    className={`inline-block mt-1 px-2 py-1 rounded-lg text-xs font-bold ${
+                                      statusClasses[
+                                        order
+                                          .status
+                                      ]
+                                    }`}
+                                  >
+                                    {
+                                      statusLabels[
+                                        order
+                                          .status
+                                      ]
+                                    }
+                                  </span>
+                                </div>
                               </div>
-
-                              <div className="text-left">
-                                <p className="font-black text-[#174c32]">
-                                  {formatPrice(order.total)}
-                                </p>
-
-                                <span
-                                  className={`inline-block mt-1 px-2 py-1 rounded-lg text-xs font-bold ${
-                                    statusClasses[order.status]
-                                  }`}
-                                >
-                                  {statusLabels[order.status]}
-                                </span>
-                              </div>
-                            </div>
-                          </button>
-                        ))
+                            </button>
+                          ))
                       )}
                     </div>
                   </div>
@@ -923,7 +1140,9 @@ const saveProduct = async () => {
                       </div>
 
                       <button
-                        onClick={() => setSection("users")}
+                        onClick={() =>
+                          setSection("users")
+                        }
                         className="text-[#174c32] font-bold text-sm"
                       >
                         عرض الكل
@@ -934,36 +1153,43 @@ const saveProduct = async () => {
                       {users.length === 0 ? (
                         <EmptyState text="لا يوجد مستخدمين" />
                       ) : (
-                        users.slice(0, 5).map((user) => (
-                          <button
-                            key={user.id}
-                            onClick={() => openUserModal(user)}
-                            className="w-full text-right p-5 hover:bg-[#fffdf7] transition"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-full bg-[#174c32] text-white flex items-center justify-center font-black">
-                                {user.name?.charAt(0)?.toUpperCase() ||
-                                  "U"}
-                              </div>
+                        users
+                          .slice(0, 5)
+                          .map((user) => (
+                            <button
+                              key={user.id}
+                              onClick={() =>
+                                openUserModal(user)
+                              }
+                              className="w-full text-right p-5 hover:bg-[#fffdf7] transition"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-11 h-11 rounded-full bg-[#174c32] text-white flex items-center justify-center font-black">
+                                  {user.name
+                                    ?.charAt(0)
+                                    ?.toUpperCase() ||
+                                    "U"}
+                                </div>
 
-                              <div className="min-w-0">
-                                <p className="font-black truncate">
-                                  {user.name}
-                                </p>
+                                <div className="min-w-0">
+                                  <p className="font-black truncate">
+                                    {user.name}
+                                  </p>
 
-                                <p className="text-sm text-gray-500 truncate">
-                                  {user.email}
-                                </p>
-                              </div>
+                                  <p className="text-sm text-gray-500 truncate">
+                                    {user.email}
+                                  </p>
+                                </div>
 
-                              <div className="mr-auto text-left">
-                                <p className="text-sm font-bold text-[#174c32]">
-                                  {user.xcoin} XCoin
-                                </p>
+                                <div className="mr-auto text-left">
+                                  <p className="text-sm font-bold text-[#174c32]">
+                                    {user.xcoin}{" "}
+                                    XCoin
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </button>
-                        ))
+                            </button>
+                          ))
                       )}
                     </div>
                   </div>
@@ -971,7 +1197,7 @@ const saveProduct = async () => {
               </div>
             )}
 
-            {/* USERS */}
+            {/* ================= USERS ================= */}
 
             {section === "users" && (
               <div className="space-y-6">
@@ -1027,7 +1253,9 @@ const saveProduct = async () => {
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-[#174c32] text-white flex items-center justify-center font-black">
-                                  {user.name?.charAt(0)?.toUpperCase() ||
+                                  {user.name
+                                    ?.charAt(0)
+                                    ?.toUpperCase() ||
                                     "U"}
                                 </div>
 
@@ -1050,12 +1278,14 @@ const saveProduct = async () => {
                             <td className="p-4">
                               <span
                                 className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                                  user.role === "ADMIN"
+                                  user.role ===
+                                  "ADMIN"
                                     ? "bg-[#174c32] text-white"
                                     : "bg-gray-100 text-gray-600"
                                 }`}
                               >
-                                {user.role === "ADMIN"
+                                {user.role ===
+                                "ADMIN"
                                   ? "أدمن"
                                   : "مستخدم"}
                               </span>
@@ -1063,17 +1293,24 @@ const saveProduct = async () => {
 
                             <td className="p-4">
                               <span className="font-black text-[#174c32]">
-                                {user.xcoin} XCoin
+                                {user.xcoin}{" "}
+                                XCoin
                               </span>
                             </td>
 
                             <td className="p-4 text-sm text-gray-500">
-                              {formatDate(user.createdAt)}
+                              {formatDate(
+                                user.createdAt,
+                              )}
                             </td>
 
                             <td className="p-4">
                               <button
-                                onClick={() => openUserModal(user)}
+                                onClick={() =>
+                                  openUserModal(
+                                    user,
+                                  )
+                                }
                                 className="bg-[#174c32] text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-[#103b27] transition"
                               >
                                 التفاصيل
@@ -1092,7 +1329,7 @@ const saveProduct = async () => {
               </div>
             )}
 
-            {/* PRODUCTS */}
+            {/* ================= PRODUCTS ================= */}
 
             {section === "products" && (
               <div className="space-y-6">
@@ -1121,15 +1358,20 @@ const saveProduct = async () => {
                       key={product.id}
                       className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden"
                     >
-                      <div className="h-48 bg-[#f7f3e7] flex items-center justify-center overflow-hidden">
+                      <div className="relative h-48 bg-[#f7f3e7] flex items-center justify-center overflow-hidden">
                         {product.image ? (
-                          <img
+                          <Image
                             src={product.image}
                             alt={product.name}
-                            className="w-full h-full object-cover"
+                            fill
+                            unoptimized
+                            sizes="(max-width: 768px) 100vw, 400px"
+                            className="object-cover"
                           />
                         ) : (
-                          <span className="text-6xl">🍯</span>
+                          <span className="text-6xl">
+                            🍯
+                          </span>
                         )}
                       </div>
 
@@ -1151,7 +1393,9 @@ const saveProduct = async () => {
                             </p>
 
                             <p className="font-black text-[#174c32]">
-                              {formatPrice(product.price)}
+                              {formatPrice(
+                                product.price,
+                              )}
                             </p>
                           </div>
 
@@ -1168,14 +1412,22 @@ const saveProduct = async () => {
 
                         <div className="flex gap-2 mt-4">
                           <button
-                            onClick={() => openEditProduct(product)}
+                            onClick={() =>
+                              openEditProduct(
+                                product,
+                              )
+                            }
                             className="flex-1 bg-[#174c32] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-[#103b27] transition"
                           >
                             تعديل
                           </button>
 
                           <button
-                            onClick={() => deleteProduct(product)}
+                            onClick={() =>
+                              deleteProduct(
+                                product,
+                              )
+                            }
                             className="bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-red-100 transition"
                           >
                             حذف
@@ -1192,7 +1444,7 @@ const saveProduct = async () => {
               </div>
             )}
 
-            {/* ORDERS */}
+            {/* ================= ORDERS ================= */}
 
             {section === "orders" && (
               <div className="space-y-6">
@@ -1252,7 +1504,8 @@ const saveProduct = async () => {
                             <td className="p-4">
                               <div>
                                 <p className="font-black">
-                                  {order.user?.name || "مستخدم"}
+                                  {order.user?.name ||
+                                    "مستخدم"}
                                 </p>
 
                                 <p className="text-xs text-gray-500">
@@ -1264,20 +1517,27 @@ const saveProduct = async () => {
                             </td>
 
                             <td className="p-4 font-black">
-                              {formatPrice(order.total)}
+                              {formatPrice(
+                                order.total,
+                              )}
                             </td>
 
                             <td className="p-4">
                               <select
-                                value={order.status}
+                                value={
+                                  order.status
+                                }
                                 onChange={(e) =>
                                   updateOrderStatus(
                                     order,
-                                    e.target.value as OrderStatus,
+                                    e.target
+                                      .value as OrderStatus,
                                   )
                                 }
                                 className={`border-0 outline-none px-3 py-2 rounded-xl font-bold text-xs ${
-                                  statusClasses[order.status]
+                                  statusClasses[
+                                    order.status
+                                  ]
                                 }`}
                               >
                                 <option value="PENDING">
@@ -1307,25 +1567,33 @@ const saveProduct = async () => {
                             </td>
 
                             <td className="p-4 text-sm text-gray-500">
-                              {formatDate(order.createdAt)}
+                              {formatDate(
+                                order.createdAt,
+                              )}
                             </td>
 
                             <td className="p-4">
                               <div className="flex gap-2">
                                 <button
                                   onClick={() =>
-                                    openOrderModal(order)
+                                    openOrderModal(
+                                      order,
+                                    )
                                   }
                                   className="bg-[#174c32] text-white px-3 py-2 rounded-xl text-xs font-bold"
                                 >
                                   التفاصيل
                                 </button>
 
-                                {order.status !== "CANCELLED" &&
-                                  order.status !== "DELIVERED" && (
+                                {order.status !==
+                                  "CANCELLED" &&
+                                  order.status !==
+                                    "DELIVERED" && (
                                     <button
                                       onClick={() =>
-                                        cancelOrder(order)
+                                        cancelOrder(
+                                          order,
+                                        )
                                       }
                                       className="bg-red-50 text-red-600 px-3 py-2 rounded-xl text-xs font-bold"
                                     >
@@ -1355,13 +1623,16 @@ const saveProduct = async () => {
       {showUserModal && selectedUser && (
         <Modal
           title={`بيانات المستخدم - ${selectedUser.name}`}
-          onClose={() => setShowUserModal(false)}
+          onClose={() =>
+            setShowUserModal(false)
+          }
         >
           <div className="space-y-5">
             <div className="flex items-center gap-4 bg-[#f7f3e7] rounded-2xl p-4">
               <div className="w-14 h-14 rounded-full bg-[#174c32] text-white flex items-center justify-center text-xl font-black">
-                {selectedUser.name?.charAt(0)?.toUpperCase() ||
-                  "U"}
+                {selectedUser.name
+                  ?.charAt(0)
+                  ?.toUpperCase() || "U"}
               </div>
 
               <div>
@@ -1417,11 +1688,15 @@ const saveProduct = async () => {
                     onClick={updateUser}
                     className="flex-1 bg-[#174c32] text-white py-3 rounded-xl font-bold disabled:opacity-50"
                   >
-                    {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
+                    {saving
+                      ? "جاري الحفظ..."
+                      : "حفظ التعديلات"}
                   </button>
 
                   <button
-                    onClick={() => setEditingUser(false)}
+                    onClick={() =>
+                      setEditingUser(false)
+                    }
                     className="px-5 bg-gray-100 rounded-xl font-bold"
                   >
                     إلغاء
@@ -1433,18 +1708,23 @@ const saveProduct = async () => {
                 <div className="grid sm:grid-cols-2 gap-3">
                   <InfoBox
                     label="البريد الإلكتروني"
-                    value={selectedUser.email}
+                    value={
+                      selectedUser.email
+                    }
                   />
 
                   <InfoBox
                     label="الهاتف"
-                    value={selectedUser.phone || "-"}
+                    value={
+                      selectedUser.phone || "-"
+                    }
                   />
 
                   <InfoBox
                     label="الدور"
                     value={
-                      selectedUser.role === "ADMIN"
+                      selectedUser.role ===
+                      "ADMIN"
                         ? "أدمن"
                         : "مستخدم"
                     }
@@ -1457,7 +1737,9 @@ const saveProduct = async () => {
 
                   <InfoBox
                     label="تاريخ التسجيل"
-                    value={formatDate(selectedUser.createdAt)}
+                    value={formatDate(
+                      selectedUser.createdAt,
+                    )}
                   />
                 </div>
 
@@ -1472,7 +1754,9 @@ const saveProduct = async () => {
                       min="1"
                       value={xcoinAmount}
                       onChange={(e) =>
-                        setXcoinAmount(e.target.value)
+                        setXcoinAmount(
+                          e.target.value,
+                        )
                       }
                       placeholder="الكمية"
                       className="flex-1 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#174c32]"
@@ -1480,7 +1764,9 @@ const saveProduct = async () => {
 
                     <button
                       disabled={saving}
-                      onClick={() => updateXcoin("add")}
+                      onClick={() =>
+                        updateXcoin("add")
+                      }
                       className="bg-green-600 text-white px-4 rounded-xl font-bold"
                     >
                       + إضافة
@@ -1488,7 +1774,9 @@ const saveProduct = async () => {
 
                     <button
                       disabled={saving}
-                      onClick={() => updateXcoin("remove")}
+                      onClick={() =>
+                        updateXcoin("remove")
+                      }
                       className="bg-red-500 text-white px-4 rounded-xl font-bold"
                     >
                       - خصم
@@ -1498,16 +1786,23 @@ const saveProduct = async () => {
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setEditingUser(true)}
+                    onClick={() =>
+                      setEditingUser(true)
+                    }
                     className="flex-1 bg-[#174c32] text-white py-3 rounded-xl font-bold"
                   >
                     تعديل البيانات
                   </button>
 
-                  {selectedUser.role !== "ADMIN" && (
+                  {selectedUser.role !==
+                    "ADMIN" && (
                     <button
                       disabled={saving}
-                      onClick={() => deleteUser(selectedUser)}
+                      onClick={() =>
+                        deleteUser(
+                          selectedUser,
+                        )
+                      }
                       className="bg-red-50 text-red-600 px-5 rounded-xl font-bold"
                     >
                       حذف
@@ -1525,13 +1820,18 @@ const saveProduct = async () => {
       {showOrderModal && selectedOrder && (
         <Modal
           title={`تفاصيل الطلب #${selectedOrder.id}`}
-          onClose={() => setShowOrderModal(false)}
+          onClose={() =>
+            setShowOrderModal(false)
+          }
         >
           <div className="space-y-5">
             <div className="grid sm:grid-cols-2 gap-3">
               <InfoBox
                 label="العميل"
-                value={selectedOrder.user?.name || "مستخدم"}
+                value={
+                  selectedOrder.user?.name ||
+                  "مستخدم"
+                }
               />
 
               <InfoBox
@@ -1545,22 +1845,33 @@ const saveProduct = async () => {
 
               <InfoBox
                 label="البريد"
-                value={selectedOrder.user?.email || "-"}
+                value={
+                  selectedOrder.user?.email ||
+                  "-"
+                }
               />
 
               <InfoBox
                 label="التاريخ"
-                value={formatDate(selectedOrder.createdAt)}
+                value={formatDate(
+                  selectedOrder.createdAt,
+                )}
               />
 
               <InfoBox
                 label="العنوان"
-                value={selectedOrder.address}
+                value={
+                  selectedOrder.address
+                }
               />
 
               <InfoBox
                 label="الحالة"
-                value={statusLabels[selectedOrder.status]}
+                value={
+                  statusLabels[
+                    selectedOrder.status
+                  ]
+                }
               />
             </div>
 
@@ -1570,51 +1881,74 @@ const saveProduct = async () => {
               </h4>
 
               <div className="space-y-2">
-                {selectedOrder.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 bg-[#f7f3e7] rounded-xl p-3"
-                  >
-                    <div>
-                      <p className="font-bold">
-                        {item.productName}
-                      </p>
+                {selectedOrder.items.map(
+                  (item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between gap-3 bg-[#f7f3e7] rounded-xl p-3"
+                    >
+                      <div>
+                        <p className="font-bold">
+                          {
+                            item.productName
+                          }
+                        </p>
 
-                      <p className="text-xs text-gray-500">
-                        {item.quantity} ×{" "}
-                        {formatPrice(item.price)}
+                        <p className="text-xs text-gray-500">
+                          {item.quantity} ×{" "}
+                          {formatPrice(
+                            item.price,
+                          )}
+                        </p>
+                      </div>
+
+                      <p className="font-black text-[#174c32]">
+                        {formatPrice(
+                          item.price *
+                            item.quantity,
+                        )}
                       </p>
                     </div>
-
-                    <p className="font-black text-[#174c32]">
-                      {formatPrice(item.price * item.quantity)}
-                    </p>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             </div>
 
             <div className="bg-[#fff4d2] rounded-2xl p-4 space-y-2">
               <div className="flex justify-between">
-                <span>المجموع الفرعي</span>
+                <span>
+                  المجموع الفرعي
+                </span>
+
                 <strong>
-                  {formatPrice(selectedOrder.subtotal)}
+                  {formatPrice(
+                    selectedOrder.subtotal,
+                  )}
                 </strong>
               </div>
 
               <div className="flex justify-between">
                 <span>الشحن</span>
+
                 <strong>
-                  {selectedOrder.shipping === 0
+                  {selectedOrder.shipping ===
+                  0
                     ? "مجاني"
-                    : formatPrice(selectedOrder.shipping)}
+                    : formatPrice(
+                        selectedOrder.shipping,
+                      )}
                 </strong>
               </div>
 
               <div className="border-t border-black/10 pt-2 flex justify-between text-lg">
-                <span className="font-black">الإجمالي</span>
+                <span className="font-black">
+                  الإجمالي
+                </span>
+
                 <strong className="text-[#174c32]">
-                  {formatPrice(selectedOrder.total)}
+                  {formatPrice(
+                    selectedOrder.total,
+                  )}
                 </strong>
               </div>
             </div>
@@ -1625,11 +1959,14 @@ const saveProduct = async () => {
               </label>
 
               <select
-                value={selectedOrder.status}
+                value={
+                  selectedOrder.status
+                }
                 onChange={(e) =>
                   updateOrderStatus(
                     selectedOrder,
-                    e.target.value as OrderStatus,
+                    e.target
+                      .value as OrderStatus,
                   )
                 }
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none"
@@ -1668,9 +2005,13 @@ const saveProduct = async () => {
       {showProductModal && (
         <Modal
           title={
-            editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"
+            editingProduct
+              ? "تعديل المنتج"
+              : "إضافة منتج جديد"
           }
-          onClose={() => setShowProductModal(false)}
+          onClose={() =>
+            setShowProductModal(false)
+          }
         >
           <div className="space-y-4">
             <Input
@@ -1690,11 +2031,14 @@ const saveProduct = async () => {
               </label>
 
               <textarea
-                value={productForm.description}
+                value={
+                  productForm.description
+                }
                 onChange={(e) =>
                   setProductForm((prev) => ({
                     ...prev,
-                    description: e.target.value,
+                    description:
+                      e.target.value,
                   }))
                 }
                 rows={3}
@@ -1718,7 +2062,9 @@ const saveProduct = async () => {
               <Input
                 label="سعر XCoin"
                 type="number"
-                value={productForm.xcoinPrice}
+                value={
+                  productForm.xcoinPrice
+                }
                 onChange={(value) =>
                   setProductForm((prev) => ({
                     ...prev,
@@ -1739,37 +2085,45 @@ const saveProduct = async () => {
                 }
               />
 
-             <div>
-  <label className="block font-bold text-sm mb-2">
-    صورة المنتج
-  </label>
+              <div>
+                <label className="block font-bold text-sm mb-2">
+                  صورة المنتج
+                </label>
 
-  <div className="rounded-2xl border-2 border-dashed border-gray-200 p-4">
-    <input
-      type="file"
-      accept="image/*"
-      onChange={handleImageUpload}
-      disabled={uploadingImage}
-      className="w-full cursor-pointer text-sm"
-    />
+                <div className="rounded-2xl border-2 border-dashed border-gray-200 p-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={
+                      handleImageUpload
+                    }
+                    disabled={
+                      uploadingImage
+                    }
+                    className="w-full cursor-pointer text-sm"
+                  />
 
-    {uploadingImage && (
-      <div className="mt-3 rounded-xl bg-[#f7f3e7] px-4 py-3 text-sm font-bold text-[#174c32]">
-        جاري رفع الصورة...
-      </div>
-    )}
+                  {uploadingImage && (
+                    <div className="mt-3 rounded-xl bg-[#f7f3e7] px-4 py-3 text-sm font-bold text-[#174c32]">
+                      جاري رفع الصورة...
+                    </div>
+                  )}
 
-    {productForm.image && !uploadingImage && (
-      <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 bg-[#f7f3e7]">
-        <img
-          src={productForm.image}
-          alt="معاينة المنتج"
-          className="h-48 w-full object-contain"
-        />
-      </div>
-    )}
-  </div>
-</div>
+                  {productForm.image &&
+                    !uploadingImage && (
+                      <div className="relative mt-4 h-48 overflow-hidden rounded-2xl border border-gray-100 bg-[#f7f3e7]">
+                        <Image
+                          src={productForm.image}
+                          alt="معاينة المنتج"
+                          fill
+                          unoptimized
+                          sizes="(max-width: 768px) 100vw, 600px"
+                          className="object-contain"
+                        />
+                      </div>
+                    )}
+                </div>
+              </div>
             </div>
 
             <button
@@ -1813,7 +2167,9 @@ function StatCard({
           {icon}
         </div>
 
-        <span className="text-gray-400">→</span>
+        <span className="text-gray-400">
+          →
+        </span>
       </div>
 
       <p className="text-gray-500 text-sm mt-4">
@@ -1827,11 +2183,20 @@ function StatCard({
   );
 }
 
-function EmptyState({ text }: { text: string }) {
+function EmptyState({
+  text,
+}: {
+  text: string;
+}) {
   return (
     <div className="p-10 text-center text-gray-500">
-      <div className="text-4xl mb-3">📭</div>
-      <p className="font-bold">{text}</p>
+      <div className="text-4xl mb-3">
+        📭
+      </div>
+
+      <p className="font-bold">
+        {text}
+      </p>
     </div>
   );
 }
@@ -1861,7 +2226,9 @@ function Modal({
           </button>
         </div>
 
-        <div className="p-5">{children}</div>
+        <div className="p-5">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -1887,7 +2254,9 @@ function Input({
       <input
         type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) =>
+          onChange(e.target.value)
+        }
         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#174c32]"
       />
     </div>
@@ -1903,9 +2272,13 @@ function InfoBox({
 }) {
   return (
     <div className="bg-[#f7f3e7] rounded-xl p-3">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className="font-bold break-words">{value}</p>
+      <p className="text-xs text-gray-500 mb-1">
+        {label}
+      </p>
+
+      <p className="font-bold break-words">
+        {value}
+      </p>
     </div>
   );
 }
-

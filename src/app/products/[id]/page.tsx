@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -247,9 +248,11 @@ export default function ProductDetailsPage() {
             <div className="flex min-h-[420px] items-center justify-center p-8 sm:min-h-[520px]">
 
               {product.image ? (
-                <img
+                <Image
                   src={product.image}
                   alt={product.name}
+                  width={600}
+                  height={600}
                   className="max-h-[480px] w-full object-contain transition duration-500 hover:scale-105"
                 />
               ) : (

@@ -58,43 +58,57 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function getOrders() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch("/api/orders", {
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (response.status === 401) {
-        setError("يجب تسجيل الدخول أولًا");
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || "حدث خطأ أثناء جلب الطلبات");
-      }
-
-      setOrders(data.orders || []);
-    } catch (error) {
-      console.error("Get orders error:", error);
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : "حدث خطأ أثناء تحميل الطلبات",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+ 
 
   useEffect(() => {
-    getOrders();
+    const controller = new AbortController();
+
+    fetch("/api/orders", {
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json();
+
+        if (response.status === 401) {
+          throw new Error("يجب تسجيل الدخول أولًا");
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "حدث خطأ أثناء جلب الطلبات",
+          );
+        }
+
+        return data.orders || [];
+      })
+      .then((ordersData: Order[]) => {
+        setOrders(ordersData);
+      })
+      .catch((error) => {
+        if (
+          error instanceof Error &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error("Get orders error:", error);
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "حدث خطأ أثناء تحميل الطلبات",
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   // ================= LOADING =================

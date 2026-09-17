@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Product = {
   id: number;
@@ -18,8 +20,9 @@ type CartItem = {
 };
 
 export default function CheckoutPage() {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  const [items, setItems] = useState<CartItem[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [phone, setPhone] = useState("");
@@ -27,54 +30,73 @@ export default function CheckoutPage() {
 
   const [error, setError] = useState("");
 
-  async function getCart() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch("/api/cart", {
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (response.status === 401) {
-        setError("يجب تسجيل الدخول أولًا");
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || "حدث خطأ أثناء جلب السلة");
-      }
-
-      const cartItems = data.cart?.items || [];
-
-      if (cartItems.length === 0) {
-        setError("السلة فارغة");
-        return;
-      }
-
-      setItems(cartItems);
-    } catch (error) {
-      console.error("Get checkout cart error:", error);
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : "حدث خطأ أثناء تحميل السلة",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+  // ================= GET CART =================
 
   useEffect(() => {
-    getCart();
+    const controller = new AbortController();
+
+    fetch("/api/cart", {
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json();
+
+        if (response.status === 401) {
+          throw new Error("يجب تسجيل الدخول أولًا");
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "حدث خطأ أثناء جلب السلة",
+          );
+        }
+
+        const cartItems = data.cart?.items || [];
+
+        if (cartItems.length === 0) {
+          throw new Error("السلة فارغة");
+        }
+
+        return cartItems;
+      })
+      .then((cartItems: CartItem[]) => {
+        setItems(cartItems);
+      })
+      .catch((error) => {
+        if (
+          error instanceof Error &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error("Get checkout cart error:", error);
+
+        setItems([]);
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "حدث خطأ أثناء تحميل السلة",
+        );
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
-  const subtotal = items.reduce(
-    (total, item) => total + item.product.price * item.quantity,
+  const loading = items === null;
+
+  const cartItems = items ?? [];
+
+  // ================= TOTALS =================
+
+  const subtotal = cartItems.reduce(
+    (total, item) =>
+      total + item.product.price * item.quantity,
     0,
   );
 
@@ -82,12 +104,16 @@ export default function CheckoutPage() {
 
   const total = subtotal + shipping;
 
-  const productsCount = items.reduce(
+  const productsCount = cartItems.reduce(
     (total, item) => total + item.quantity,
     0,
   );
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  // ================= CREATE ORDER =================
+
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     if (submitting) return;
@@ -121,10 +147,14 @@ export default function CheckoutPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "حدث خطأ أثناء إنشاء الطلب");
+        throw new Error(
+          data.error || "حدث خطأ أثناء إنشاء الطلب",
+        );
       }
 
-      window.location.href = `/order-success?orderId=${data.order.id}`;
+      router.push(
+        `/order-success?orderId=${data.order.id}`,
+      );
     } catch (error) {
       console.error("Create order error:", error);
 
@@ -138,6 +168,8 @@ export default function CheckoutPage() {
     }
   }
 
+  // ================= LOADING =================
+
   if (loading) {
     return (
       <main
@@ -149,6 +181,7 @@ export default function CheckoutPage() {
 
           <div className="mt-10 grid gap-8 lg:grid-cols-3">
             <div className="h-[450px] animate-pulse rounded-[28px] bg-gray-200 lg:col-span-2" />
+
             <div className="h-[400px] animate-pulse rounded-[28px] bg-gray-200" />
           </div>
         </div>
@@ -156,7 +189,9 @@ export default function CheckoutPage() {
     );
   }
 
-  if (error && items.length === 0) {
+  // ================= ERROR / EMPTY CART =================
+
+  if (error && cartItems.length === 0) {
     return (
       <main
         dir="rtl"
@@ -183,6 +218,8 @@ export default function CheckoutPage() {
       </main>
     );
   }
+
+  // ================= PAGE =================
 
   return (
     <main
@@ -235,7 +272,9 @@ export default function CheckoutPage() {
                   id="phone"
                   type="tel"
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
+                  onChange={(event) =>
+                    setPhone(event.target.value)
+                  }
                   placeholder="مثال: 01012345678"
                   className="w-full rounded-2xl border border-gray-200 bg-[#fffdf7] px-5 py-4 text-right outline-none transition focus:border-[#174c32] focus:ring-2 focus:ring-[#174c32]/10"
                 />
@@ -254,7 +293,9 @@ export default function CheckoutPage() {
                 <textarea
                   id="address"
                   value={address}
-                  onChange={(event) => setAddress(event.target.value)}
+                  onChange={(event) =>
+                    setAddress(event.target.value)
+                  }
                   placeholder="المحافظة، المدينة، الشارع، رقم المنزل..."
                   rows={5}
                   className="w-full resize-none rounded-2xl border border-gray-200 bg-[#fffdf7] px-5 py-4 text-right outline-none transition focus:border-[#174c32] focus:ring-2 focus:ring-[#174c32]/10"
@@ -301,14 +342,25 @@ export default function CheckoutPage() {
             </h2>
 
             <div className="mb-6 space-y-4">
-              {items.map((item) => (
+              {cartItems.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-center justify-between gap-4 border-b border-black/5 pb-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff4d2] text-2xl">
-                      {item.product.image || "🍯"}
+                    <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff4d2] text-2xl">
+                      {item.product.image ? (
+                        <Image
+                          src={item.product.image}
+                          alt={item.product.name}
+                          fill
+                          unoptimized
+                          sizes="48px"
+                          className="rounded-xl object-contain"
+                        />
+                      ) : (
+                        "🍯"
+                      )}
                     </div>
 
                     <div>
@@ -346,7 +398,9 @@ export default function CheckoutPage() {
                 </span>
 
                 <span className="font-bold">
-                  {shipping === 0 ? "مجاني" : `${shipping} جنيه`}
+                  {shipping === 0
+                    ? "مجاني"
+                    : `${shipping} جنيه`}
                 </span>
               </div>
 
@@ -378,7 +432,8 @@ export default function CheckoutPage() {
             </button>
 
             <p className="mt-4 text-center text-xs leading-6 text-gray-400">
-              بالضغط على تأكيد الطلب، سيتم إنشاء طلبك وبدء تجهيزه.
+              بالضغط على تأكيد الطلب، سيتم إنشاء طلبك وبدء
+              تجهيزه.
             </p>
           </div>
         </form>

@@ -1,6 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 type Errors = {
@@ -13,6 +15,8 @@ type Errors = {
 };
 
 export default function RegisterPage() {
+  const router = useRouter();
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -128,7 +132,7 @@ export default function RegisterPage() {
       }
 
       // إنشاء الحساب نجح
-      window.location.href = "/login";
+      router.push("/login");
     } catch (error) {
       console.error("Register error:", error);
 
@@ -454,3 +458,4 @@ export default function RegisterPage() {
     </main>
   );
 }
+

@@ -1,6 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 type Errors = {
@@ -10,6 +12,8 @@ type Errors = {
 };
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -51,7 +55,6 @@ export default function LoginPage() {
     if (!validate()) return;
 
     setLoading(true);
-
     setErrors({});
 
     try {
@@ -71,19 +74,22 @@ export default function LoginPage() {
 
       if (!response.ok) {
         setErrors({
-          general: data.error || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+          general:
+            data.error ||
+            "البريد الإلكتروني أو كلمة المرور غير صحيحة",
         });
 
         return;
       }
 
       // تسجيل الدخول نجح
-      window.location.href = "/";
+      router.push("/");
     } catch (error) {
       console.error("Login error:", error);
 
       setErrors({
-        general: "حدث خطأ أثناء تسجيل الدخول، حاول مرة أخرى",
+        general:
+          "حدث خطأ أثناء تسجيل الدخول، حاول مرة أخرى",
       });
     } finally {
       setLoading(false);
@@ -92,7 +98,7 @@ export default function LoginPage() {
 
   const updateField = (
     field: keyof typeof form,
-    value: string
+    value: string,
   ) => {
     setForm((prev) => ({
       ...prev,
@@ -119,7 +125,6 @@ export default function LoginPage() {
       <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[#174c32]/10 blur-3xl" />
 
       <div className="relative z-10 w-full max-w-lg">
-
         {/* Brand */}
         <div className="mb-8 text-center">
           <Link
@@ -144,7 +149,6 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="rounded-[32px] border border-[#174c32]/10 bg-white p-6 shadow-2xl shadow-[#174c32]/10 sm:p-8">
-
           <div className="mb-8">
             <h2 className="text-2xl font-black text-[#174c32]">
               تسجيل الدخول
@@ -160,7 +164,6 @@ export default function LoginPage() {
             noValidate
             className="space-y-5"
           >
-
             {/* General Error */}
             {errors.general && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-600">
@@ -211,12 +214,14 @@ export default function LoginPage() {
                   كلمة المرور
                 </label>
 
-                {/* <Link
+                {/* 
+                <Link
                   href="/forgot-password"
                   className="text-xs font-bold text-[#9b7730] no-underline transition hover:text-[#174c32]"
                 >
                   نسيت كلمة المرور؟
-                </Link> */}
+                </Link>
+                */}
               </div>
 
               <div className="relative">
@@ -278,9 +283,10 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full rounded-2xl bg-[#174c32] py-4 text-sm font-black text-white shadow-lg shadow-[#174c32]/20 transition duration-300 hover:-translate-y-0.5 hover:bg-[#103b27] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
+              {loading
+                ? "جاري تسجيل الدخول..."
+                : "تسجيل الدخول"}
             </button>
-
           </form>
 
           {/* Register */}
@@ -296,7 +302,6 @@ export default function LoginPage() {
               إنشاء حساب جديد
             </Link>
           </div>
-
         </div>
 
         {/* Back Home */}
@@ -308,7 +313,6 @@ export default function LoginPage() {
             ← العودة للرئيسية
           </Link>
         </div>
-
       </div>
     </main>
   );
