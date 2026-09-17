@@ -235,7 +235,7 @@ export default function Footer() {
               >
                 <span>📞</span>
                 <span dir="ltr">
-                  +20 100 000 0000
+                  +20 1278389339
                 </span>
               </a>
 
@@ -244,7 +244,7 @@ export default function Footer() {
                 className="flex items-center gap-3 transition hover:text-[#e3b65c]"
               >
                 <span>✉️</span>
-                info@altamsah.com
+                barakata138@gmail.com
               </a>
 
               <div className="flex items-center gap-3">
