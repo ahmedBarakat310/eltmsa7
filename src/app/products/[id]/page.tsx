@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -41,19 +40,21 @@ export default function ProductDetailsPage() {
 
         const data = await response.json();
 
+        console.log("PRODUCT DETAILS DATA:", data);
+        console.log("PRODUCT DETAILS IMAGE:", data.image);
+
         if (!response.ok) {
           throw new Error(
-            data.error || "لم نتمكن من العثور على المنتج",
+            data.error || "لم نتمكن من العثور على المنتج"
           );
         }
 
-        // لو الـ API بيرجع المنتج مباشرة
         setProduct(data);
       } catch (error) {
         setError(
           error instanceof Error
             ? error.message
-            : "حدث خطأ أثناء جلب المنتج",
+            : "حدث خطأ أثناء جلب المنتج"
         );
       } finally {
         setLoading(false);
@@ -72,13 +73,13 @@ export default function ProductDetailsPage() {
     if (!product) return;
 
     setQuantity((current) =>
-      Math.min(current + 1, product.stock),
+      Math.min(current + 1, product.stock)
     );
   }
 
   function decreaseQuantity() {
     setQuantity((current) =>
-      Math.max(current - 1, 1),
+      Math.max(current - 1, 1)
     );
   }
 
@@ -112,7 +113,7 @@ export default function ProductDetailsPage() {
 
       if (!response.ok) {
         throw new Error(
-          data.error || "حدث خطأ أثناء إضافة المنتج",
+          data.error || "حدث خطأ أثناء إضافة المنتج"
         );
       }
 
@@ -123,7 +124,7 @@ export default function ProductDetailsPage() {
       alert(
         error instanceof Error
           ? error.message
-          : "حدث خطأ أثناء إضافة المنتج",
+          : "حدث خطأ أثناء إضافة المنتج"
       );
     } finally {
       setAdding(false);
@@ -140,11 +141,9 @@ export default function ProductDetailsPage() {
         className="min-h-screen bg-[#fffdf7] px-4 py-10"
       >
         <div className="mx-auto max-w-6xl animate-pulse">
-
           <div className="mb-8 h-5 w-32 rounded bg-gray-200" />
 
           <div className="grid gap-10 lg:grid-cols-2">
-
             <div className="h-[500px] rounded-[32px] bg-gray-200" />
 
             <div className="space-y-5">
@@ -154,7 +153,6 @@ export default function ProductDetailsPage() {
               <div className="h-16 rounded bg-gray-200" />
               <div className="h-14 rounded bg-gray-200" />
             </div>
-
           </div>
         </div>
       </main>
@@ -171,10 +169,7 @@ export default function ProductDetailsPage() {
         className="flex min-h-screen items-center justify-center bg-[#fffdf7] px-4"
       >
         <div className="w-full max-w-md rounded-[28px] border border-red-100 bg-white p-8 text-center shadow-xl">
-
-          <div className="mb-4 text-6xl">
-            😕
-          </div>
+          <div className="mb-4 text-6xl">😕</div>
 
           <h1 className="mb-3 text-2xl font-black text-[#174c32]">
             المنتج غير موجود
@@ -190,7 +185,6 @@ export default function ProductDetailsPage() {
           >
             العودة للمنتجات
           </Link>
-
         </div>
       </main>
     );
@@ -210,7 +204,6 @@ export default function ProductDetailsPage() {
             Breadcrumb
         ========================= */}
         <div className="mb-8 flex items-center gap-2 text-sm font-bold text-gray-400">
-
           <Link
             href="/"
             className="text-[#174c32] no-underline hover:underline"
@@ -232,7 +225,6 @@ export default function ProductDetailsPage() {
           <span className="truncate">
             {product.name}
           </span>
-
         </div>
 
         {/* =========================
@@ -248,11 +240,9 @@ export default function ProductDetailsPage() {
             <div className="flex min-h-[420px] items-center justify-center p-8 sm:min-h-[520px]">
 
               {product.image ? (
-                <Image
+                <img
                   src={product.image}
                   alt={product.name}
-                  width={600}
-                  height={600}
                   className="max-h-[480px] w-full object-contain transition duration-500 hover:scale-105"
                 />
               ) : (
@@ -280,7 +270,6 @@ export default function ProductDetailsPage() {
                 ? `متوفر ${product.stock}`
                 : "غير متوفر"}
             </span>
-
           </div>
 
           {/* =========================
@@ -290,7 +279,6 @@ export default function ProductDetailsPage() {
 
             {/* Name */}
             <div className="mb-4 flex items-start justify-between gap-4">
-
               <h1 className="text-3xl font-black leading-tight text-[#174c32] sm:text-4xl">
                 {product.name}
               </h1>
@@ -298,7 +286,6 @@ export default function ProductDetailsPage() {
               <span className="text-3xl">
                 🍯
               </span>
-
             </div>
 
             {/* Description */}
@@ -314,7 +301,6 @@ export default function ProductDetailsPage() {
 
               {/* EGP */}
               <div className="rounded-2xl border border-[#174c32]/10 bg-white p-5 shadow-sm">
-
                 <p className="mb-2 text-xs font-bold text-gray-400">
                   السعر
                 </p>
@@ -328,12 +314,10 @@ export default function ProductDetailsPage() {
                     جنيه
                   </span>
                 </div>
-
               </div>
 
               {/* XCoin */}
               <div className="rounded-2xl border border-[#d8a84e]/30 bg-[#fff4d2] p-5">
-
                 <p className="mb-2 text-xs font-bold text-[#174c32]/60">
                   السعر بالـ XCoin
                 </p>
@@ -347,9 +331,7 @@ export default function ProductDetailsPage() {
                     XCoin
                   </span>
                 </div>
-
               </div>
-
             </div>
 
             {/* =========================
@@ -387,7 +369,6 @@ export default function ProductDetailsPage() {
                   </button>
 
                 </div>
-
               </div>
             )}
 
@@ -404,7 +385,6 @@ export default function ProductDetailsPage() {
                   </span>
 
                   <div className="text-left">
-
                     <div className="text-xl font-black text-[#174c32]">
                       {totalPrice} جنيه
                     </div>
@@ -412,11 +392,9 @@ export default function ProductDetailsPage() {
                     <div className="text-sm font-bold text-gray-500">
                       {totalXCoin} XCoin
                     </div>
-
                   </div>
 
                 </div>
-
               </div>
             )}
 
@@ -441,7 +419,9 @@ export default function ProductDetailsPage() {
                 </>
               ) : (
                 <>
-                  <span className="text-xl">🛒</span>
+                  <span className="text-xl">
+                    🛒
+                  </span>
                   إضافة إلى السلة
                 </>
               )}
@@ -454,7 +434,6 @@ export default function ProductDetailsPage() {
             >
               متابعة التسوق
             </Link>
-
           </div>
         </div>
 
@@ -464,30 +443,42 @@ export default function ProductDetailsPage() {
         <div className="mt-12 grid gap-4 sm:grid-cols-3">
 
           <div className="rounded-2xl border border-[#174c32]/10 bg-white p-5 text-center shadow-sm">
-            <div className="mb-2 text-2xl">🍯</div>
+            <div className="mb-2 text-2xl">
+              🍯
+            </div>
+
             <h3 className="font-black text-[#174c32]">
               جودة مميزة
             </h3>
+
             <p className="mt-1 text-xs text-gray-400">
               منتجات مختارة بعناية
             </p>
           </div>
 
           <div className="rounded-2xl border border-[#174c32]/10 bg-white p-5 text-center shadow-sm">
-            <div className="mb-2 text-2xl">📦</div>
+            <div className="mb-2 text-2xl">
+              📦
+            </div>
+
             <h3 className="font-black text-[#174c32]">
               تغليف آمن
             </h3>
+
             <p className="mt-1 text-xs text-gray-400">
               تجهيز المنتج بعناية
             </p>
           </div>
 
           <div className="rounded-2xl border border-[#174c32]/10 bg-white p-5 text-center shadow-sm">
-            <div className="mb-2 text-2xl">🛒</div>
+            <div className="mb-2 text-2xl">
+              🛒
+            </div>
+
             <h3 className="font-black text-[#174c32]">
               طلب بسهولة
             </h3>
+
             <p className="mt-1 text-xs text-gray-400">
               أضف المنتج للسلة مباشرة
             </p>
