@@ -255,13 +255,14 @@ export default function Navbar() {
 
         {/* ================= ACCOUNT DESKTOP ================= */}
 
-        <div className="hidden items-center gap-2 xl:flex">
+        <div className="hidden items-center gap-2 lg:flex">
 
           {loadingUser ? (
             <div className="h-10 w-10 animate-pulse rounded-full bg-[#174c32]/10" />
           ) : user ? (
             <>
               {/* Avatar */}
+             <Link href={"/profile"}>
 
               <div
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-[#174c32] text-lg font-black text-white shadow-md shadow-[#174c32]/20"
@@ -269,12 +270,15 @@ export default function Navbar() {
               >
                 {userInitial}
               </div>
+             </Link>
 
               {/* Name */}
 
-              <span className="max-w-[120px] truncate text-sm font-black text-[#174c32]">
+             <Link href={"/profile"}>
+              <span className="max-w-[120px]  truncate text-sm font-black text-[#174c32]">
                 {user.name}
               </span>
+             </Link>
 
               {/* Logout */}
 
@@ -307,9 +311,10 @@ export default function Navbar() {
         </div>
 
         {/* ================= MOBILE BUTTON ================= */}
-  <div className="flex gap-5 items-center">        <Link
+  <div className="flex gap-5 items-center">  
+          <Link
             href="/cart"
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[#174c32]/10 bg-white text-xl shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#d8a84e]/40 hover:bg-[#d8a84e]/10"
+            className="relative lg:hidden flex h-11 w-11 items-center justify-center rounded-xl border border-[#174c32]/10 bg-white text-xl shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#d8a84e]/40 hover:bg-[#d8a84e]/10"
             aria-label="السلة"
             title="السلة"
           >
@@ -415,6 +420,8 @@ export default function Navbar() {
 
           {!loadingUser && user ? (
             <>
+             <Link href={"/profile"}>
+
               <div className="mt-4 flex items-center gap-3 rounded-xl bg-[#174c32]/5 p-4">
 
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#174c32] text-lg font-black text-white">
@@ -432,6 +439,7 @@ export default function Navbar() {
                 </div>
 
               </div>
+              </Link>
 
               <button
                 type="button"
