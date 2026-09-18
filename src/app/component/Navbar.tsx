@@ -307,6 +307,20 @@ export default function Navbar() {
         </div>
 
         {/* ================= MOBILE BUTTON ================= */}
+  <div className="flex gap-5 items-center">        <Link
+            href="/cart"
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[#174c32]/10 bg-white text-xl shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#d8a84e]/40 hover:bg-[#d8a84e]/10"
+            aria-label="السلة"
+            title="السلة"
+          >
+            🛒
+
+            {cartCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#d8a84e] px-1 text-[10px] font-black text-[#174c32] shadow-sm">
+                {cartCount}
+              </span>
+            )}
+          </Link>
 
         <button
           type="button"
@@ -316,9 +330,11 @@ export default function Navbar() {
         >
           {open ? "✕" : "☰"}
         </button>
+        </div> 
       </div>
 
       {/* ================= MOBILE MENU ================= */}
+      
 
       <div
         className={`overflow-hidden border-t border-[#174c32]/5 bg-[#fffdf7] transition-all duration-300 lg:hidden ${
@@ -327,6 +343,7 @@ export default function Navbar() {
             : "max-h-0 opacity-0"
         }`}
       >
+      
         <nav className="mx-auto flex max-w-7xl flex-col px-5 py-5">
 
           {/* Products */}
